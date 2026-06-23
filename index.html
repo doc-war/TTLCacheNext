@@ -1,0 +1,934 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>TTLCacheNext — 高性能 TTL + LRU 内存缓存</title>
+<meta name="description" content="TTLCacheNext：超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。256 分片并发，无锁 LRU 核心，内置缓存雪崩防护。">
+
+<meta property="og:title" content="TTLCacheNext — 高性能 TTL + LRU 内存缓存">
+<meta property="og:description" content="超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。256 分片并发，无锁 LRU 核心，内置缓存雪崩防护和脏数据降级。">
+<meta property="og:type" content="website">
+<meta property="og:url" content="https://doc-war.com/TTLCacheNext">
+<meta property="og:image" content="https://doc-war.com/img/og-ttl.png">
+
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "SoftwareApplication",
+  "name": "TTLCacheNext",
+  "description": "超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。256 分片并发，无锁 LRU 核心，内置缓存雪崩防护和脏数据降级。",
+  "applicationCategory": "DeveloperApplication",
+  "operatingSystem": "Cross-platform",
+  "programmingLanguage": "Go",
+  "license": "MIT",
+  "author": {
+    "@type": "Organization",
+    "name": "doc-war"
+  },
+  "offers": {
+    "@type": "Offer",
+    "price": "0"
+  }
+}
+</script>
+
+<script src="/analytics.js" defer></script>
+<link rel="icon" href="/img/favicon.ico" type="image/x-icon">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --bg:#0A0C10;
+    --surface:#12151C;
+    --surface-2:#161A22;
+    --line:rgba(232,230,224,0.10);
+    --line-strong:rgba(232,230,224,0.18);
+    --text:#E8E6E0;
+    --muted:#8A8F98;
+    --muted-2:#5E636C;
+    --accent:#4FB8B0;
+    --accent-soft:rgba(79,184,176,0.14);
+    --accent-line:rgba(79,184,176,0.45);
+    --accent-pulse:rgba(79,184,176,0.35);
+    --orange:#D98C4A;
+    --orange-soft:rgba(217,140,74,0.14);
+    --orange-line:rgba(217,140,74,0.45);
+    --radius:6px;
+    --maxw:1080px;
+  }
+
+  *{box-sizing:border-box;}
+  html{scroll-behavior:smooth;}
+  body{
+    margin:0;
+    background:var(--bg);
+    color:var(--text);
+    font-family:'Inter',-apple-system,'PingFang SC','Microsoft YaHei',sans-serif;
+    font-size:16px;
+    line-height:1.6;
+    -webkit-font-smoothing:antialiased;
+  }
+  ::selection{background:var(--accent-soft); color:var(--accent);}
+
+  a{color:inherit; text-decoration:none;}
+  code, pre, .mono{font-family:'IBM Plex Mono', ui-monospace, monospace;}
+
+  h1,h2,h3{
+    font-family:'Space Grotesk', sans-serif;
+    font-weight:600;
+    letter-spacing:-0.01em;
+    margin:0;
+  }
+
+  :focus-visible{outline:2px solid var(--accent); outline-offset:2px; border-radius:3px;}
+
+  .grid-bg{
+    position:fixed; inset:0; z-index:-1;
+    background-image:
+      linear-gradient(var(--line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--line) 1px, transparent 1px);
+    background-size:48px 48px;
+    opacity:0.35;
+    mask-image:radial-gradient(ellipse 100% 60% at 50% 0%, black 30%, transparent 75%);
+  }
+
+  header{
+    position:sticky; top:0; z-index:50;
+    backdrop-filter:blur(10px) saturate(120%);
+    background:rgba(10,12,16,0.78);
+    border-bottom:1px solid var(--line);
+  }
+  .nav{
+    max-width:var(--maxw); margin:0 auto; padding:0 24px;
+    height:60px; display:flex; align-items:center; justify-content:space-between;
+    gap:16px;
+  }
+  .brand{display:flex; align-items:center; gap:8px; font-weight:600; font-size:15px;}
+  .brand .dot{width:7px; height:7px; border-radius:50%; background:var(--accent); box-shadow:0 0 8px var(--accent);}
+  .nav-links{display:flex; gap:28px; font-size:13px; color:var(--muted);}
+  .nav-links a{position:relative; padding:4px 0; transition:color .2s;}
+  .nav-links a:hover, .nav-links a.active{color:var(--text);}
+  .nav-links a.active::after{
+    content:''; position:absolute; left:0; right:0; bottom:-2px; height:1px; background:var(--accent);
+  }
+  .nav-right{display:flex; align-items:center; gap:14px;}
+  .pill{
+    font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted);
+    border:1px solid var(--line-strong); border-radius:20px; padding:4px 10px;
+  }
+  .nav-links-mobile{display:none;}
+
+  @media (max-width:760px){
+    .nav-links{display:none;}
+  }
+
+  .section{
+    max-width:var(--maxw); margin:0 auto;
+    padding:96px 24px 0;
+    display:grid;
+    grid-template-columns:64px 1fr;
+    gap:32px;
+  }
+  .section:last-of-type{padding-bottom:96px;}
+  .rail{
+    font-family:'IBM Plex Mono'; font-size:12px; color:var(--muted-2);
+    padding-top:6px;
+  }
+  .rail .num{display:block; color:var(--accent); font-weight:600;}
+  .content{min-width:0;}
+  .eyebrow{
+    font-family:'IBM Plex Mono'; font-size:12px; letter-spacing:0.08em;
+    color:var(--muted); text-transform:uppercase; margin:0 0 14px;
+  }
+  .section h2{font-size:clamp(24px,3vw,32px); margin-bottom:18px;}
+  .section > .content > p.lead{color:var(--muted); font-size:16px; max-width:640px; margin:0 0 36px;}
+
+  @media (max-width:760px){
+    .section{grid-template-columns:1fr; padding:64px 20px 0;}
+    .rail{display:flex; align-items:center; gap:8px; padding-top:0;}
+  }
+
+  .hero{
+    max-width:var(--maxw); margin:0 auto;
+    padding:88px 24px 60px;
+    display:grid;
+    grid-template-columns:1.05fr 0.95fr;
+    gap:40px;
+    align-items:center;
+  }
+  .hero h1{
+    font-size:clamp(34px,4.6vw,52px);
+    line-height:1.12;
+    margin-bottom:22px;
+  }
+  .hero h1 .accent-word{color:var(--accent);}
+  .hero p.sub{
+    color:var(--muted); font-size:17px; max-width:520px; margin-bottom:28px;
+  }
+  .hero-cta{display:flex; align-items:center; gap:18px; flex-wrap:wrap;}
+  .lang-row{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:24px;}
+  .lang-chip{
+    display:flex; align-items:center; gap:8px;
+    border:1px solid var(--line-strong); border-radius:var(--radius);
+    padding:8px 14px; background:var(--surface);
+    font-family:'IBM Plex Mono'; font-size:12.5px; color:var(--muted);
+    transition:all .15s;
+  }
+  .lang-chip:hover{color:var(--text); border-color:var(--muted);}
+  .lang-chip .lang-name{color:var(--text); font-weight:600;}
+  .lang-chip .lang-repo{color:var(--muted-2);}
+  .lang-chip.active{border-color:var(--accent-line); background:var(--accent-soft);}
+  .lang-chip.active .lang-name{color:var(--accent);}
+  .install-chip{
+    display:flex; align-items:center; gap:10px;
+    background:var(--surface); border:1px solid var(--line-strong);
+    border-radius:var(--radius); padding:9px 8px 9px 14px;
+    font-family:'IBM Plex Mono'; font-size:13px;
+  }
+  .install-chip .gp{color:var(--muted-2);}
+  .install-chip .pkg{color:var(--accent);}
+  .copy-btn{
+    background:transparent; border:1px solid var(--line-strong); color:var(--muted);
+    border-radius:4px; padding:5px 8px; font-size:11px; font-family:'IBM Plex Mono';
+    cursor:pointer; transition:all .15s; line-height:1;
+  }
+  .copy-btn:hover{color:var(--text); border-color:var(--muted);}
+  .link-arrow{font-size:14px; color:var(--text); border-bottom:1px solid var(--line-strong); padding-bottom:2px; transition:border-color .2s;}
+  .link-arrow:hover{border-color:var(--accent); color:var(--accent);}
+
+  @media (max-width:880px){
+    .hero{grid-template-columns:1fr; padding-top:56px;}
+  }
+
+  .diagram-wrap{
+    border:1px solid var(--line); border-radius:10px;
+    background:var(--surface);
+    padding:8px;
+  }
+  .diagram-wrap svg{display:block; width:100%; height:auto;}
+  .diagram-cap{
+    display:flex; justify-content:space-between;
+    font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted-2);
+    padding:8px 6px 2px;
+  }
+
+  .pulse{animation:pulse 2.6s ease-in-out infinite;}
+  @media (prefers-reduced-motion: reduce){ .pulse{animation:none;} }
+  @keyframes pulse{0%,100%{opacity:.45} 50%{opacity:1}}
+
+  .code-block{
+    background:var(--surface-2); border:1px solid var(--line);
+    border-radius:var(--radius); overflow:hidden; margin:18px 0 28px;
+  }
+  .code-head{
+    display:flex; justify-content:space-between; align-items:center;
+    padding:9px 14px; border-bottom:1px solid var(--line);
+    font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted);
+  }
+  .code-block pre{
+    margin:0; padding:18px 20px; overflow-x:auto;
+    font-size:13px; line-height:1.7; color:var(--text);
+  }
+  .tk-kw{color:var(--accent);}
+  .tk-str{color:var(--orange);}
+  .tk-cm{color:var(--muted-2);}
+  .tk-fn{color:#9FB6E8;}
+
+  table{width:100%; border-collapse:collapse; margin:0 0 28px; font-size:14px;}
+  caption{text-align:left; font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted-2); padding-bottom:8px;}
+  th, td{text-align:left; padding:11px 14px; border-bottom:1px solid var(--line);}
+  th{font-family:'IBM Plex Mono'; font-size:11.5px; color:var(--muted); font-weight:500; text-transform:uppercase; letter-spacing:.04em;}
+  td .mono{color:var(--text); font-size:13px;}
+  td.num-cell{font-family:'IBM Plex Mono'; font-size:13px;}
+  .scroll-x{overflow-x:auto; -webkit-overflow-scrolling:touch;}
+  .table-card{border:1px solid var(--line); border-radius:var(--radius); padding:4px 16px; background:var(--surface);}
+
+  .perf-row{display:grid; grid-template-columns:140px 1fr 1fr; gap:16px; align-items:center; padding:14px 0; border-bottom:1px solid var(--line);}
+  .perf-row:last-child{border-bottom:none;}
+  .perf-label{font-size:13px; color:var(--muted);}
+  .bar-cell{display:flex; flex-direction:column; gap:6px;}
+  .bar-track{height:8px; background:var(--surface-2); border-radius:4px; overflow:hidden; border:1px solid var(--line);}
+  .bar-fill{height:100%; border-radius:4px;}
+  .bar-fill.db{background:var(--muted-2);}
+  .bar-fill.ckd{background:var(--accent);}
+  .bar-val{font-family:'IBM Plex Mono'; font-size:12px; color:var(--muted);}
+  .perf-head{display:grid; grid-template-columns:140px 1fr 1fr; gap:16px; font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted-2); text-transform:uppercase; letter-spacing:.05em; padding-bottom:10px; border-bottom:1px solid var(--line-strong);}
+
+  .formula-stack{
+    border:1px solid var(--line); border-radius:var(--radius); background:var(--surface);
+    padding:22px 24px; margin:18px 0 30px;
+  }
+  .formula-row{display:flex; gap:14px; align-items:baseline; padding:9px 0; border-bottom:1px dashed var(--line);}
+  .formula-row:last-child{border-bottom:none;}
+  .formula-tag{font-family:'IBM Plex Mono'; font-size:11px; color:var(--muted-2); width:52px; flex-shrink:0; padding-top:3px;}
+  .formula-body{font-family:'IBM Plex Mono'; font-size:13.5px; color:var(--text); overflow-x:auto; white-space:pre;}
+  .formula-body .v{color:var(--accent);}
+  .formula-body .f{color:var(--orange);}
+
+  .glossary{display:grid; grid-template-columns:repeat(auto-fit,minmax(160px,1fr)); gap:14px; margin:24px 0 30px;}
+  .gloss-item{border:1px solid var(--line); border-radius:var(--radius); padding:12px 14px; background:var(--surface);}
+  .gloss-item .sym{font-family:'IBM Plex Mono'; color:var(--accent); font-size:14px; display:block; margin-bottom:4px;}
+  .gloss-item .desc{font-size:13px; color:var(--muted);}
+
+  .check-list{list-style:none; margin:0 0 30px; padding:0; display:grid; gap:12px;}
+  .check-list li{display:flex; gap:12px; align-items:flex-start; font-size:14.5px; color:var(--text);}
+  .check-list svg{flex-shrink:0; margin-top:3px;}
+  .check-list .t{color:var(--text);}
+  .check-list .d{color:var(--muted); display:block; font-size:13.5px; margin-top:2px;}
+
+  .limit-list{list-style:none; margin:0 0 30px; padding:0; display:grid; gap:10px;}
+  .limit-list li{display:flex; gap:12px; font-size:14px; color:var(--muted); padding-left:0;}
+  .limit-list li::before{content:'—'; color:var(--muted-2); flex-shrink:0;}
+
+  .two-col{display:grid; grid-template-columns:1fr 1fr; gap:28px;}
+  @media (max-width:760px){.two-col{grid-template-columns:1fr;}}
+
+  hr.div{border:none; border-top:1px solid var(--line); margin:0 24px;}
+
+  footer{
+    max-width:var(--maxw); margin:0 auto; padding:48px 24px 80px;
+    display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:16px;
+  }
+  footer .fl{font-family:'IBM Plex Mono'; font-size:12px; color:var(--muted-2);}
+  footer .fr{display:flex; gap:22px; font-size:13px; color:var(--muted);}
+  footer .fr a:hover{color:var(--text);}
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+
+<header>
+  <div class="nav">
+    <div class="brand"><span class="dot"></span>TTLCacheNext</div>
+    <nav class="nav-links" id="navLinks">
+      <a href="#overview">概述</a>
+      <a href="#quickstart">快速开始</a>
+      <a href="#architecture">架构</a>
+      <a href="#perf">性能</a>
+      <a href="#api">API</a>
+      <a href="#features">特性</a>
+    </nav>
+    <div class="nav-right">
+      <span class="pill">v0 · MIT</span>
+      <a class="gh-link" href="https://github.com/doc-war/TTLCacheNext" target="_blank" rel="noopener">GitHub ↗</a>
+    </div>
+  </div>
+</header>
+
+<!-- ================= HERO ================= -->
+<section class="hero" id="overview">
+  <div>
+    <p class="eyebrow">Go Library · 泛型 · 零外部依赖</p>
+    <h1>256 分片并发 · 0 额外分配<br>比 golang-lru <span class="accent-word">快 4.2 倍</span></h1>
+    <p class="sub"><span class="mono">TTLCacheNext</span> 是一个超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。256 个分片通过 FNV-1a 哈希路由，大幅降低锁竞争；无锁 LRU 核心消除嵌套锁开销。专为读密集、高并发的场景设计。</p>
+
+    <div class="lang-row">
+      <span class="lang-chip active">
+        <span class="lang-name">Go</span><span class="lang-repo">TTLCacheNext</span>
+      </span>
+    </div>
+
+    <div class="hero-cta">
+      <div class="install-chip">
+        <span class="gp">$ go get</span>
+        <span class="pkg" id="installCmdText">github.com/doc-war/TTLCacheNext</span>
+        <button class="copy-btn" data-copy="go get github.com/doc-war/TTLCacheNext">复制</button>
+      </div>
+      <a class="link-arrow" href="#quickstart">查看快速开始 →</a>
+    </div>
+  </div>
+
+  <div>
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 480 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TTLCacheNext 256 分片架构示意图">
+        <defs>
+          <marker id="arrAccent" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="var(--accent)"/>
+          </marker>
+          <marker id="arrOrange" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="var(--orange)"/>
+          </marker>
+        </defs>
+
+        <!-- FNV-1a 路由箭头 -->
+        <path class="edge-derive pulse" marker-end="url(#arrOrange)" d="M 16,60 C 80,60 120,56 160,56" stroke="var(--orange)" fill="none" stroke-width="1.6"/>
+        <text x="60" y="50" class="edge-label" fill="var(--orange)" font-family="'IBM Plex Mono'" font-size="9px">FNV-1a</text>
+
+        <!-- 输入标签 -->
+        <rect x="8" y="24" width="76" height="24" rx="4" fill="var(--accent-soft)" stroke="var(--accent-line)" stroke-width="1"/>
+        <text x="46" y="40" text-anchor="middle" class="node-label" font-size="10px" fill="var(--text)">key</text>
+
+        <!-- 4x4 分片网格 -->
+        <g>
+          <rect x="168" y="16" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="202" y="34" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[0]</text>
+          <text x="202" y="48" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="240" y="16" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="274" y="34" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[1]</text>
+          <text x="274" y="48" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="312" y="16" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="346" y="34" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[2]</text>
+          <text x="346" y="48" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="384" y="16" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="418" y="34" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[3]</text>
+          <text x="418" y="48" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="168" y="64" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="202" y="82" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[4]</text>
+          <text x="202" y="96" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="240" y="64" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="274" y="82" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[5]</text>
+          <text x="274" y="96" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="312" y="64" width="68" height="44" rx="4" fill="var(--accent-soft)" stroke="var(--accent-line)" stroke-width="1.2"/>
+          <text x="346" y="82" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--accent)">Shard[6]</text>
+          <text x="346" y="96" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--accent)">RWMutex</text>
+          <!-- 命中分片标记 -->
+          <rect x="340" y="112" width="12" height="6" rx="2" fill="var(--accent)"/>
+          <text x="346" y="126" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--accent)">⇠ hit</text>
+
+          <rect x="384" y="64" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="418" y="82" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[7]</text>
+          <text x="418" y="96" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="168" y="112" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="202" y="130" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[8]</text>
+          <text x="202" y="144" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="240" y="112" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="274" y="130" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[9]</text>
+          <text x="274" y="144" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="312" y="112" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="346" y="130" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[10]</text>
+          <text x="346" y="144" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="384" y="112" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="418" y="130" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[11]</text>
+          <text x="418" y="144" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="168" y="160" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="202" y="178" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[12]</text>
+          <text x="202" y="192" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="240" y="160" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="274" y="178" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[13]</text>
+          <text x="274" y="192" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="312" y="160" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="346" y="178" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[14]</text>
+          <text x="346" y="192" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+
+          <rect x="384" y="160" width="68" height="44" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+          <text x="418" y="178" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">Shard[15]</text>
+          <text x="418" y="192" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="7px" fill="var(--muted-2)">RWMutex</text>
+        </g>
+
+        <!-- 右下方放大示意一个 shard 的内部结构 -->
+        <g transform="translate(168, 216)">
+          <rect x="0" y="0" width="284" height="96" rx="6" fill="var(--surface)" stroke="var(--line-strong)" stroke-width="1" stroke-dasharray="4 3"/>
+          <text x="142" y="16" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted-2)">lruCore 内部结构</text>
+
+          <rect x="12" y="24" width="80" height="28" rx="3" fill="var(--surface-2)" stroke="var(--line)" stroke-width="1"/>
+          <text x="52" y="42" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">hashmap</text>
+
+          <text x="96" y="40" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="10px" fill="var(--muted-2)">⇋</text>
+
+          <rect x="116" y="24" width="156" height="28" rx="3" fill="var(--accent-soft)" stroke="var(--accent-line)" stroke-width="1"/>
+          <text x="194" y="40" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--accent)">双向链表</text>
+
+          <!-- 链表示意 -->
+          <circle cx="130" cy="66" r="6" fill="var(--bg)" stroke="var(--accent-line)" stroke-width="1"/>
+          <circle cx="158" cy="66" r="6" fill="var(--bg)" stroke="var(--accent-line)" stroke-width="1"/>
+          <circle cx="186" cy="66" r="6" fill="var(--bg)" stroke="var(--accent-line)" stroke-width="1"/>
+          <circle cx="214" cy="66" r="6" fill="var(--bg)" stroke="var(--accent-line)" stroke-width="1"/>
+          <circle cx="242" cy="66" r="6" fill="var(--bg)" stroke="var(--line-strong)" stroke-width="1"/>
+
+          <line x1="136" y1="66" x2="152" y2="66" stroke="var(--accent)" stroke-width="1"/>
+          <line x1="164" y1="66" x2="180" y2="66" stroke="var(--accent)" stroke-width="1"/>
+          <line x1="192" y1="66" x2="208" y2="66" stroke="var(--accent)" stroke-width="1"/>
+          <line x1="220" y1="66" x2="236" y2="66" stroke="var(--accent)" stroke-width="1"/>
+
+          <text x="130" y="78" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="5px" fill="var(--muted-2)">head</text>
+          <text x="250" y="78" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="5px" fill="var(--muted-2)">tail</text>
+        </g>
+
+        <!-- "256 shards" 标注 -->
+        <text x="326" y="286" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="11px" fill="var(--muted-2)">256 shards (4×64) · FNV-1a 路由 · 无锁 LRU</text>
+
+        <!-- 图例 -->
+        <rect x="168" y="298" width="10" height="10" rx="2" fill="var(--accent-soft)" stroke="var(--accent-line)" stroke-width="1"/>
+        <text x="182" y="307" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">命中分片</text>
+        <rect x="240" y="298" width="10" height="10" rx="2" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+        <text x="254" y="307" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted)">空闲分片</text>
+      </svg>
+      <div class="diagram-cap">
+        <span>FNV-1a 路由到 Shard[6]，RLock 快路径直接返回</span>
+        <span>hashmap + 双向链表 = LRU</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 概述 ================= -->
+<section class="section" id="goals">
+  <div class="rail"><span class="num">§00</span>概述</div>
+  <div class="content">
+    <h2>用分片代替排队</h2>
+    <p class="lead">TTLCacheNext 把"一个全局锁的缓存"拆成 256 个独立分片，每把锁只覆盖 1/256 的数据——并发越高，收益越大。</p>
+
+    <div class="two-col">
+      <div>
+        <h3 style="font-size:16px; margin-bottom:14px; color:var(--text);">核心目标</h3>
+        <ul class="check-list">
+          <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span class="t">256 个分片</span><span class="d">FNV-1a 哈希路由，单把锁覆盖仅 1/256 的数据</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span class="t">无锁 LRU 核心</span><span class="d">lruCore 不内嵌锁，完全委托外层 RWMutex，零嵌套锁开销</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span class="t">缓存雪崩防护</span><span class="d">慢路径在分片锁内串行化 loader 调用，等同内置 singleflight</span></li>
+          <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span class="t">脏数据优雅降级</span><span class="d">loader 失败时返回旧过期值，不中断服务</span></li>
+        </ul>
+      </div>
+      <div>
+        <h3 style="font-size:16px; margin-bottom:14px; color:var(--text);">架构一览</h3>
+        <div class="formula-stack" style="margin-top:0;">
+          <div class="formula-body" style="white-space:pre-line; font-size:13px;">Cache[T]               ← 泛型 API
+  └─ Shard[0..255]       ← 256 分片
+       └─ lruCore          ← 无锁 LRU + hashmap</div>
+        </div>
+        <h3 style="font-size:16px; margin:20px 0 14px; color:var(--text);">全局 vs 分片锁</h3>
+        <div class="formula-stack" style="margin-top:0;">
+          <div class="formula-body" style="white-space:pre-line; font-size:13px;">全局锁：     1 把锁管全部   → 排队严重
+分片锁：   256 把锁各管 1/256 → 接近无锁</div>
+        </div>
+      </div>
+    </div>
+
+    <h3 style="font-size:16px; margin-bottom:6px; color:var(--text);">同类对比</h3>
+    <p style="color:var(--muted); font-size:13.5px; margin-top:0; margin-bottom:18px;">以下对比基于 Intel i5-8265U @ 1.60GHz · 10K key 固定池 · RunParallel 并发模式。</p>
+
+    <div class="table-card" style="padding:18px 20px;">
+      <div class="perf-head"><span></span><span>golang-lru v2</span><span>TTLCacheNext</span></div>
+
+      <div class="perf-row">
+        <span class="perf-label">并发写入</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill db" style="width:100%;"></div></div><span class="bar-val">670 ns/op · 0 alloc</span></div>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill ckd" style="width:24%;"></div></div><span class="bar-val">158 ns/op · 0 alloc</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">并发读取</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill db" style="width:100%;"></div></div><span class="bar-val">762 ns/op · 0 alloc</span></div>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill ckd" style="width:24%;"></div></div><span class="bar-val">183 ns/op · 0 alloc</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">混合负载 (9:1)</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill db" style="width:100%;"></div></div><span class="bar-val">833 ns/op</span></div>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill ckd" style="width:49%;"></div></div><span class="bar-val">405 ns/op</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">LRU 淘汰</span>
+        <div class="bar-cell"><span class="bar-val" style="color:var(--muted);">✓</span></div>
+        <div class="bar-cell"><span class="bar-val" style="color:var(--accent);">✓</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">TTL 过期</span>
+        <div class="bar-cell"><span class="bar-val" style="color:var(--muted);">✗</span></div>
+        <div class="bar-cell"><span class="bar-val" style="color:var(--accent);">✓</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">雪崩防护</span>
+        <div class="bar-cell"><span class="bar-val" style="color:var(--muted);">✗</span></div>
+        <div class="bar-cell"><span class="bar-val" style="color:var(--accent);">✓ 内置</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">脏数据降级</span>
+        <div class="bar-cell"><span class="bar-val" style="color:var(--muted);">✗</span></div>
+        <div class="bar-cell"><span class="bar-val" style="color:var(--accent);">✓</span></div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 快速开始 ================= -->
+<section class="section" id="quickstart">
+  <div class="rail"><span class="num">§01</span>快速开始</div>
+  <div class="content">
+    <h2>安装与使用</h2>
+    <p class="lead">零外部依赖，仅使用 Go 标准库 + 泛型。</p>
+
+    <div class="code-block">
+      <div class="code-head"><span>bash</span><button class="copy-btn" data-copy="go get github.com/doc-war/TTLCacheNext">复制</button></div>
+      <pre>go get github.com/doc-war/TTLCacheNext</pre>
+    </div>
+
+    <div class="code-block">
+      <div class="code-head"><span>main.go</span><button class="copy-btn" data-copy-target="qsCode">复制</button></div>
+      <pre id="qsCode"><span class="tk-kw">package</span> main
+
+<span class="tk-kw">import</span> (
+    <span class="tk-str">"fmt"</span>
+    <span class="tk-str">"time"</span>
+    <span class="tk-str">"github.com/doc-war/TTLCacheNext"</span>
+)
+
+<span class="tk-kw">func</span> <span class="tk-fn">main</span>() {
+    <span class="tk-cm">// 创建一个最多缓存 ~1000 个 key、TTL 5 分钟的缓存实例</span>
+    c, err := cache.<span class="tk-fn">New</span>[<span class="tk-kw">string</span>](1000, 5*time.Minute)
+    <span class="tk-kw">if</span> err != nil {
+        panic(err)
+    }
+
+    <span class="tk-cm">// 获取或通过 loader 回源加载</span>
+    val, err := c.<span class="tk-fn">GetOrLoad</span>(<span class="tk-str">"hello"</span>, <span class="tk-kw">func</span>(key <span class="tk-kw">string</span>) (<span class="tk-kw">string</span>, error) {
+        <span class="tk-kw">return</span> <span class="tk-str">"world"</span>, nil
+    })
+    fmt.<span class="tk-fn">Println</span>(val) <span class="tk-cm">// world</span>
+
+    fmt.<span class="tk-fn">Println</span>(c.<span class="tk-fn">Len</span>()) <span class="tk-cm">// 1</span>
+    c.<span class="tk-fn">Delete</span>(<span class="tk-str">"hello"</span>)
+    c.<span class="tk-fn">Clear</span>()
+}</pre>
+    </div>
+
+    <h3 style="font-size:16px; margin:36px 0 14px; color:var(--text);">核心概念</h3>
+    <div class="scroll-x table-card">
+      <table>
+        <thead><tr><th>概念</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">maxKeys</td><td>缓存最大条目数，超出后 LRU 淘汰最久未使用的 key</td></tr>
+          <tr><td class="mono">TTL</td><td>过期时间，读取时检查；过期后触发 loader 刷新</td></tr>
+          <tr><td class="mono">Shard</td><td>256 个分片之一，每片有独立 <span class="mono">sync.RWMutex</span></td></tr>
+          <tr><td class="mono">Loader</td><td>回源函数，key 过期或不存在时自动调用，返回值写入缓存</td></tr>
+          <tr><td class="mono">降级</td><td>loader 失败时返回旧过期值，保证服务不中断</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 架构 ================= -->
+<section class="section" id="architecture">
+  <div class="rail"><span class="num">§02</span>架构</div>
+  <div class="content">
+    <h2>分片设计与快慢路径</h2>
+    <p class="lead">256 分片 + 无锁 LRU + 双层检查，每层设计都为了一个目标：让最频繁的操作尽可能无锁。</p>
+
+    <h3 style="font-size:16px; margin-bottom:14px; color:var(--text);">路由与数据结构</h3>
+    <div class="formula-stack">
+      <div class="formula-row">
+        <span class="formula-tag">路由</span>
+        <div class="formula-body"><span class="v">shardIndex</span> = FNV-1a(<span class="v">key</span>) % 256</div>
+      </div>
+      <div class="formula-row">
+        <span class="formula-tag">存储</span>
+        <div class="formula-body">每个 <span class="f">Shard</span> = <span class="f">sync.RWMutex</span> + <span class="f">lruCore</span>(hashmap + 双向链表)</div>
+      </div>
+      <div class="formula-row">
+        <span class="formula-tag">淘汰</span>
+        <div class="formula-body">链表头 = 最近使用，链表尾 = 最久未使用；超出容量淘汰尾部</div>
+      </div>
+    </div>
+
+    <h3 style="font-size:16px; margin:8px 0 14px; color:var(--text);">GetOrLoad 快路径 / 慢路径</h3>
+    <p style="color:var(--muted); font-size:13.5px; margin-top:0;">95% 以上的请求走快路径，仅加 RLock 即可返回。只有缓存过期或不存在时才走慢路径获取写锁。</p>
+
+    <div class="diagram-wrap">
+      <svg viewBox="0 0 480 260" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="GetOrLoad 快路径与慢路径流程图">
+        <defs>
+          <marker id="arrGreen" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="var(--accent)"/>
+          </marker>
+          <marker id="arrOrange2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
+            <path d="M0,0 L6,3 L0,6 Z" fill="var(--orange)"/>
+          </marker>
+        </defs>
+
+        <!-- 入口 -->
+        <rect x="168" y="10" width="144" height="26" rx="4" fill="var(--accent-soft)" stroke="var(--accent-line)" stroke-width="1.2"/>
+        <text x="240" y="28" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="10px" fill="var(--accent)">GetOrLoad(key, loader)</text>
+
+        <!-- 向下箭头 -->
+        <line x1="240" y1="36" x2="240" y2="54" stroke="var(--muted-2)" stroke-width="1.2" marker-end="url(#arrGreen)"/>
+
+        <!-- RLock -->
+        <rect x="192" y="54" width="96" height="22" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+        <text x="240" y="69" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="10px" fill="var(--text)">RLock</text>
+
+        <!-- 向下箭头 -->
+        <line x1="240" y1="76" x2="240" y2="92" stroke="var(--muted-2)" stroke-width="1.2" marker-end="url(#arrGreen)"/>
+
+        <!-- 菱形判断 -->
+        <polygon points="240,92 300,118 240,144 180,118" fill="var(--bg)" stroke="var(--line-strong)" stroke-width="1.2"/>
+        <text x="240" y="115" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--text)">命中且</text>
+        <text x="240" y="127" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--text)">未过期?</text>
+
+        <!-- 是 → 快路径 -->
+        <path d="M 300,118 C 340,118 360,80 360,50" stroke="var(--accent)" stroke-width="1.4" fill="none" marker-end="url(#arrGreen)"/>
+        <text x="340" y="84" text-anchor="start" font-family="'IBM Plex Mono'" font-size="9px" fill="var(--accent)">是 ✓</text>
+
+        <rect x="310" y="20" width="100" height="24" rx="4" fill="var(--accent-soft)" stroke="var(--accent-line)" stroke-width="1"/>
+        <text x="360" y="36" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="10px" fill="var(--accent)">RUnlock + 返回</text>
+
+        <!-- 否 → 慢路径 -->
+        <path d="M 180,118 C 140,118 120,150 120,178" stroke="var(--orange)" stroke-width="1.4" fill="none" marker-end="url(#arrOrange2)"/>
+        <text x="130" y="150" text-anchor="end" font-family="'IBM Plex Mono'" font-size="9px" fill="var(--orange)">否 ✗</text>
+
+        <!-- Lock -->
+        <rect x="60" y="178" width="120" height="22" rx="4" fill="var(--orange-soft)" stroke="var(--orange-line)" stroke-width="1"/>
+        <text x="120" y="193" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="10px" fill="var(--orange)">Lock (写锁)</text>
+
+        <!-- 向下箭头 -->
+        <line x1="120" y1="200" x2="120" y2="214" stroke="var(--muted-2)" stroke-width="1.2" marker-end="url(#arrOrange2)"/>
+
+        <!-- 双重检查 -->
+        <rect x="48" y="214" width="144" height="20" rx="4" fill="var(--surface-2)" stroke="var(--line-strong)" stroke-width="1"/>
+        <text x="120" y="228" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="9px" fill="var(--muted)">双重检查（可能已被其他 goroutine 刷新）</text>
+
+        <!-- 向下箭头 -->
+        <line x1="120" y1="234" x2="120" y2="246" stroke="var(--muted-2)" stroke-width="1.2"/>
+
+        <!-- 多分支 -->
+        <text x="120" y="260" text-anchor="middle" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted-2)">loader 成功 → 写入缓存 → Unlock + 返回新值</text>
+
+        <!-- 右侧分支标注 -->
+        <text x="370" y="72" text-anchor="start" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted-2)">快路径 (95%)</text>
+        <text x="50" y="172" text-anchor="start" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted-2)">慢路径 (5%)</text>
+
+        <!-- 降级标注 -->
+        <text x="20" y="276" text-anchor="start" font-family="'IBM Plex Mono'" font-size="8px" fill="var(--muted-2)">loader 失败 → 返回旧过期值（降级）· Unlock</text>
+      </svg>
+      <div class="diagram-cap">
+        <span>RLock 快路径直接返回值</span>
+        <span>Lock 慢路径串行化 loader，内置雪崩防护</span>
+      </div>
+    </div>
+
+    <h3 style="font-size:16px; margin:8px 0 14px; color:var(--text);">算法组件</h3>
+    <div class="scroll-x table-card">
+      <table>
+        <thead><tr><th>组件</th><th>算法</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td>分片路由</td><td class="mono">FNV-1a</td><td>非加密哈希，极低碰撞率，硬件友好</td></tr>
+          <tr><td>并发控制</td><td class="mono">sync.RWMutex</td><td>读多写少场景，RLock 无竞争</td></tr>
+          <tr><td>淘汰策略</td><td class="mono">LRU 双向链表</td><td>头 = 最近使用，尾 = 最久未使用</td></tr>
+          <tr><td>过期检查</td><td class="mono">读取时检查</td><td>惰性过期，无后台定时器开销</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ================= 性能 ================= -->
+<section class="section" id="perf">
+  <div class="rail"><span class="num">§03</span>性能</div>
+  <div class="content">
+    <h2>基准测试</h2>
+    <p class="lead">硬件：Intel i5-8265U @ 1.60GHz, Windows, Go 1.25.3。10K key 固定池，<span class="mono">RunParallel</span> 并发模式，取 5 次均值。</p>
+
+    <h3 style="font-size:16px; margin-bottom:14px; color:var(--text);">并发写入（Load+Set / Add / Set）</h3>
+    <div class="table-card" style="padding:12px 20px;">
+      <div class="perf-head"><span></span><span>ns/op</span><span>B/op</span></div>
+      <div class="perf-row">
+        <span class="perf-label">TTLCacheNext</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill ckd" style="width:24%;"></div></div><span class="bar-val">158</span></div>
+        <div class="bar-cell"><span class="bar-val">2</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">golang-lru v2</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill db" style="width:100%;"></div></div><span class="bar-val">670</span></div>
+        <div class="bar-cell"><span class="bar-val">0</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">go-cache</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill db" style="width:79%;"></div></div><span class="bar-val">532</span></div>
+        <div class="bar-cell"><span class="bar-val">0</span></div>
+      </div>
+    </div>
+
+    <h3 style="font-size:16px; margin:28px 0 14px; color:var(--text);">并发读取（Get 命中）</h3>
+    <div class="table-card" style="padding:12px 20px;">
+      <div class="perf-head"><span></span><span>ns/op</span><span>vs TTLCacheNext</span></div>
+      <div class="perf-row">
+        <span class="perf-label">TTLCacheNext</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill ckd" style="width:24%;"></div></div><span class="bar-val">183</span></div>
+        <div class="bar-cell"><span class="bar-val">—</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">golang-lru v2</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill db" style="width:100%;"></div></div><span class="bar-val">762</span></div>
+        <div class="bar-cell"><span class="bar-val">快 4.2×</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">go-cache *</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill db" style="width:13%;"></div></div><span class="bar-val">98</span></div>
+        <div class="bar-cell"><span class="bar-val">慢 1.9×</span></div>
+      </div>
+    </div>
+    <p style="color:var(--muted-2); font-size:12px; margin-top:4px;">* go-cache 无 LRU 淘汰，仅为 <span class="mono">map</span> + <span class="mono">sync.RWMutex</span>，功能不对等。</p>
+
+    <h3 style="font-size:16px; margin:28px 0 14px; color:var(--text);">混合负载（90% 读 + 10% 写）</h3>
+    <div class="table-card" style="padding:12px 20px;">
+      <div class="perf-head"><span></span><span>ns/op</span><span>vs TTLCacheNext</span></div>
+      <div class="perf-row">
+        <span class="perf-label">TTLCacheNext</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill ckd" style="width:49%;"></div></div><span class="bar-val">405</span></div>
+        <div class="bar-cell"><span class="bar-val">—</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">golang-lru v2</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill db" style="width:100%;"></div></div><span class="bar-val">833</span></div>
+        <div class="bar-cell"><span class="bar-val">快 2.1×</span></div>
+      </div>
+      <div class="perf-row">
+        <span class="perf-label">go-cache</span>
+        <div class="bar-cell"><div class="bar-track"><div class="bar-fill db" style="width:84%;"></div></div><span class="bar-val">700</span></div>
+        <div class="bar-cell"><span class="bar-val">快 1.7×</span></div>
+      </div>
+    </div>
+
+    <h3 style="font-size:16px; margin:28px 0 14px; color:var(--text);">关键结论</h3>
+    <ul class="check-list">
+      <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span><span class="t">写 & 混合场景全面领先</span><span class="d">分片设计大幅降低锁竞争，无锁 LRU 核心消除嵌套锁开销</span></span></li>
+      <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span><span class="t">相比 golang-lru v2（最流行 LRU 库）</span><span class="d">所有场景均有 2~4 倍性能优势</span></span></li>
+      <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span><span class="t">零额外分配</span><span class="d">Set 与 Get 操作均不产生堆内存分配</span></span></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ================= API ================= -->
+<section class="section" id="api">
+  <div class="rail"><span class="num">§04</span>API</div>
+  <div class="content">
+    <h2>接口参考</h2>
+
+    <div class="code-block">
+      <div class="code-head"><span>cache.go</span><button class="copy-btn" data-copy-target="apiCode">复制</button></div>
+      <pre id="apiCode"><span class="tk-cm">// 创建一个最多缓存 maxKeys 个 key、TTL 为 ttl 的缓存实例</span>
+<span class="tk-kw">func</span> <span class="tk-fn">New</span>[T <span class="tk-kw">any</span>](maxKeys <span class="tk-kw">int</span>, ttl time.Duration) (*Cache[T], error)
+
+<span class="tk-cm">// 获取或通过 loader 回源加载。loader 失败时返回旧过期值。</span>
+<span class="tk-kw">func</span> (c *Cache[T]) <span class="tk-fn">GetOrLoad</span>(id <span class="tk-kw">string</span>, loader <span class="tk-kw">func</span>(<span class="tk-kw">string</span>) (T, error)) (T, error)
+
+<span class="tk-cm">// 删除指定 key</span>
+<span class="tk-kw">func</span> (c *Cache[T]) <span class="tk-fn">Delete</span>(id <span class="tk-kw">string</span>)
+
+<span class="tk-cm">// 清空所有缓存</span>
+<span class="tk-kw">func</span> (c *Cache[T]) <span class="tk-fn">Clear</span>()
+
+<span class="tk-cm">// 当前缓存条目总数（近似值）</span>
+<span class="tk-kw">func</span> (c *Cache[T]) <span class="tk-fn">Len</span>() <span class="tk-kw">int</span></pre>
+    </div>
+
+    <div class="scroll-x table-card" style="margin-bottom:30px;">
+      <table>
+        <thead><tr><th>参数</th><th>类型</th><th>说明</th></tr></thead>
+        <tbody>
+          <tr><td class="mono">maxKeys</td><td class="mono">int</td><td>缓存最大条目数，超出后 LRU 淘汰</td></tr>
+          <tr><td class="mono">ttl</td><td class="mono">time.Duration</td><td>过期时间，读取时惰性检查</td></tr>
+          <tr><td class="mono">loader</td><td class="mono">func(string) (T, error)</td><td>回源函数，key 过期或不存在时自动调用</td></tr>
+        </tbody>
+      </table>
+    </div>
+
+    <h3 style="font-size:16px; margin-bottom:14px; color:var(--text);">错误处理</h3>
+    <div class="code-block">
+      <div class="code-head"><span>降级行为</span><button class="copy-btn" data-copy-target="errCode">复制</button></div>
+      <pre id="errCode"><span class="tk-cm">// GetOrLoad 在 loader 失败时的行为：</span>
+val, err := c.<span class="tk-fn">GetOrLoad</span>(<span class="tk-str">"key"</span>, loader)
+
+<span class="tk-cm">// ┌─ 缓存中无旧值 → 返回零值 + loader 错误</span>
+<span class="tk-cm">// ├─ 存在旧过期值 → 返回旧值 + loader 错误（降级模式）</span>
+<span class="tk-cm">// └─ loader 成功   → 返回新值 + nil</span></pre>
+    </div>
+    <p style="color:var(--muted); font-size:13.5px;"><span class="mono">New</span> 在 <span class="mono">maxKeys</span> 小于 1 时会自动提升为 1，保证缓存正常工作。</p>
+  </div>
+</section>
+
+<!-- ================= 特性 ================= -->
+<section class="section" id="features">
+  <div class="rail"><span class="num">§05</span>特性</div>
+  <div class="content">
+    <h2>功能特性</h2>
+
+    <ul class="check-list">
+      <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span><span class="t">泛型支持</span><span class="d"><span class="mono">Cache[T any]</span>，类型安全，无需类型断言</span></span></li>
+      <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span><span class="t">256 分片并发</span><span class="d">FNV-1a 哈希路由，单把锁只覆盖 1/256 的数据</span></span></li>
+      <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span><span class="t">无锁 LRU 核心</span><span class="d">lruCore 无自带锁，完全委托外层 RWMutex，零嵌套开销</span></span></li>
+      <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span><span class="t">缓存雪崩防护</span><span class="d">慢路径在分片锁内串行化 loader，天然 singleflight</span></span></li>
+      <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span><span class="t">脏数据优雅降级</span><span class="d">loader 失败时返回旧过期值，不中断服务</span></span></li>
+      <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span><span class="t">零外部依赖</span><span class="d">仅使用 Go 标准库，无第三方依赖</span></span></li>
+      <li><svg width="16" height="16" viewBox="0 0 16 16"><circle cx="8" cy="8" r="7" stroke="var(--accent)" stroke-width="1.3" fill="none"/><path d="M5 8l2 2 4-4" stroke="var(--accent)" stroke-width="1.4" fill="none"/></svg><span><span class="t">惰性过期</span><span class="d">TTL 在读取时检查，无后台定时器资源开销</span></span></li>
+    </ul>
+
+    <h3 style="font-size:16px; margin-bottom:14px; color:var(--text);">已知限制</h3>
+    <ul class="limit-list">
+      <li>不支持持久化，纯内存缓存，重启后数据丢失</li>
+      <li>不支持分布式，单机缓存，各实例独立</li>
+      <li>不支持逐 key 单独 TTL，所有 key 共享同一过期时间</li>
+      <li>key 仅支持 <span class="mono">string</span> 类型</li>
+      <li>Len() 返回值为近似值，非精确计数</li>
+      <li>不支持通配符批量删除</li>
+    </ul>
+  </div>
+</section>
+
+<hr class="div">
+
+<footer>
+  <span class="fl">TTLCacheNext · 高性能 TTL + LRU 内存缓存 · MIT License</span>
+  <div class="fr">
+    <a href="https://github.com/doc-war/TTLCacheNext" target="_blank" rel="noopener">GitHub</a>
+    <a href="#overview">回到顶部</a>
+  </div>
+</footer>
+
+<script>
+  document.querySelectorAll('.copy-btn').forEach(function(btn){
+    btn.addEventListener('click', function(){
+      var text;
+      if(btn.dataset.copy){
+        text = btn.dataset.copy;
+      } else if(btn.dataset.copyTarget){
+        var el = document.getElementById(btn.dataset.copyTarget);
+        text = el ? el.innerText : '';
+      }
+      if(!text) return;
+      var done = function(){
+        var orig = btn.textContent;
+        btn.textContent = '已复制';
+        setTimeout(function(){ btn.textContent = orig; }, 1400);
+      };
+      if(navigator.clipboard && navigator.clipboard.writeText){
+        navigator.clipboard.writeText(text).then(done).catch(done);
+      } else {
+        var ta = document.createElement('textarea');
+        ta.value = text; document.body.appendChild(ta); ta.select();
+        try{ document.execCommand('copy'); }catch(e){}
+        document.body.removeChild(ta);
+        done();
+      }
+    });
+  });
+
+  var navLinks = Array.from(document.querySelectorAll('#navLinks a'));
+  var sections = navLinks.map(function(a){ return document.querySelector(a.getAttribute('href')); }).filter(Boolean);
+  if('IntersectionObserver' in window && sections.length){
+    var observer = new IntersectionObserver(function(entries){
+      entries.forEach(function(entry){
+        if(entry.isIntersecting){
+          var id = '#' + entry.target.id;
+          navLinks.forEach(function(a){ a.classList.toggle('active', a.getAttribute('href') === id); });
+        }
+      });
+    }, { rootMargin: '-40% 0px -50% 0px', threshold: 0 });
+    sections.forEach(function(s){ observer.observe(s); });
+  }
+</script>
+
+</body>
+</html>
