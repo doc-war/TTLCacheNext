@@ -7,7 +7,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/doc-war/TTLCacheNext"
+	"github.com/doc-war/lru-next"
 
 	gocache "github.com/patrickmn/go-cache"
 	lru "github.com/hashicorp/golang-lru/v2"
@@ -25,9 +25,9 @@ func init() {
 	}
 }
 
-// ---- TTLCacheNext benchmarks ----
+// ---- LRUNext benchmarks ----
 
-func BenchmarkTTLCacheNext_ParallelSet(b *testing.B) {
+func BenchmarkLRUNext_ParallelSet(b *testing.B) {
 	c, _ := cache.New[string](poolSize, time.Hour)
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
@@ -40,25 +40,21 @@ func BenchmarkTTLCacheNext_ParallelSet(b *testing.B) {
 	})
 }
 
-func BenchmarkTTLCacheNext_ParallelGet(b *testing.B) {
+func BenchmarkLRUNext_ParallelGet(b *testing.B) {
 	c, _ := cache.New[string](poolSize, time.Hour)
 	for _, k := range stringKeys {
-		c.GetOrLoad(k, func(s string) (string, error) {
-			return "v", nil
-		})
+		c.Set(k, "v")
 	}
 	b.ResetTimer()
 	b.RunParallel(func(pb *testing.PB) {
 		for pb.Next() {
 			k := stringKeys[rand.Intn(poolSize)]
-			c.GetOrLoad(k, func(s string) (string, error) {
-				return "v", nil
-			})
+			c.Get(k)
 		}
 	})
 }
 
-func BenchmarkTTLCacheNext_Mixed(b *testing.B) {
+func BenchmarkLRUNext_Mixed(b *testing.B) {
 	c, _ := cache.New[string](poolSize, time.Hour)
 	for _, k := range stringKeys {
 		c.GetOrLoad(k, func(s string) (string, error) {
@@ -84,6 +80,33 @@ func BenchmarkTTLCacheNext_Mixed(b *testing.B) {
 					return "v", nil
 				})
 			}
+		}
+	})
+}
+
+// BenchmarkLRUNext_ParallelSetDirect uses Set instead of GetOrLoad
+func BenchmarkLRUNext_ParallelSetDirect(b *testing.B) {
+	c, _ := cache.New[string](poolSize, time.Hour)
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			k := stringKeys[rand.Intn(poolSize)]
+			c.Set(k, "v")
+		}
+	})
+}
+
+// BenchmarkLRUNext_ParallelGetDirect uses Get instead of GetOrLoad
+func BenchmarkLRUNext_ParallelGetDirect(b *testing.B) {
+	c, _ := cache.New[string](poolSize, time.Hour)
+	for _, k := range stringKeys {
+		c.Set(k, "v")
+	}
+	b.ResetTimer()
+	b.RunParallel(func(pb *testing.PB) {
+		for pb.Next() {
+			k := stringKeys[rand.Intn(poolSize)]
+			c.Get(k)
 		}
 	})
 }

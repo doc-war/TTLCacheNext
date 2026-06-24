@@ -58,6 +58,35 @@ func fnv32a(s string) uint32 {
 	return h.Sum32()
 }
 
+// Set 直接写入缓存，覆盖已有值，重置 TTL
+func (c *ShardedCache[T]) Set(id string, val T) {
+	shard := c.getShard(id)
+	shard.mu.Lock()
+	defer shard.mu.Unlock()
+	shard.cache.Add(id, cacheItem[T]{
+		Data:     val,
+		ExpireAt: time.Now().Add(c.ttl),
+	})
+}
+
+// Get 只读缓存。不存在或已过期时返回 zero value + false
+func (c *ShardedCache[T]) Get(id string) (T, bool) {
+	shard := c.getShard(id)
+	shard.mu.RLock()
+	defer shard.mu.RUnlock()
+
+	item, ok := shard.cache.Get(id)
+	if !ok {
+		var zero T
+		return zero, false
+	}
+	if time.Now().Before(item.ExpireAt) {
+		return item.Data, true
+	}
+	var zero T
+	return zero, false
+}
+
 /*
 GetOrLoad 从缓存中获取，如果过期或不存在则通过 loader 加载
 特别注意：返回的结构体 T 可能是零值

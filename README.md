@@ -1,10 +1,10 @@
-# TTLCacheNext
+# LRUNext
 
-[![Go Reference](https://pkg.go.dev/badge/github.com/doc-war/TTLCacheNext.svg)](https://pkg.go.dev/github.com/doc-war/TTLCacheNext)
-[![Go Report Card](https://goreportcard.com/badge/github.com/doc-war/TTLCacheNext)](https://goreportcard.com/report/github.com/doc-war/TTLCacheNext)
+[![Go Reference](https://pkg.go.dev/badge/github.com/doc-war/lru-next.svg)](https://pkg.go.dev/github.com/doc-war/lru-next)
+[![Go Report Card](https://goreportcard.com/badge/github.com/doc-war/lru-next)](https://goreportcard.com/report/github.com/doc-war/lru-next)
 [![MIT License](https://img.shields.io/badge/license-MIT-blue.svg)](LICENSE)
 
-**TTLCacheNext** 是一个超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。专为读密集、高并发的场景设计，内置缓存雪崩防护和脏数据降级能力。
+**LRUNext** 是一个超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。专为读密集、高并发的场景设计，内置缓存雪崩防护和脏数据降级能力，基准测试远超golang-lru v2。
 
 ---
 
@@ -61,33 +61,33 @@ go test -bench=. -benchmem -count=5
 
 | 库 | ns/op | B/op | allocs/op |
 |---|---|---|---|
-| **TTLCacheNext** | **158** | 2 | 0 |
+| **LRUNext** | **158** | 2 | 0 |
 | golang-lru v2 | 670 | 0 | 0 |
 | go-cache | 532 | 0 | 0 |
 
-TTLCacheNext比golang-lru v2、go-cache分别快4.2倍和3.4倍
+LRUNext比golang-lru v2、go-cache分别快4.2倍和3.4倍
 
 #### 并发读取（Get 命中）
 
 | 库 | ns/op | B/op | allocs/op | vs |
 |---|---|---|---|---|
-| **TTLCacheNext** | **183** | 2 | 0 | — |
+| **LRUNext** | **183** | 2 | 0 | — |
 | golang-lru v2 | 762 | 0 | 0 | 快 4.2× |
 | go-cache | 98 | 0 | 0 | 慢 1.9× * |
 
-TTLCacheNext比golang-lru v2快4.2倍、比go-cache慢1.9倍
+LRUNext比golang-lru v2快4.2倍、比go-cache慢1.9倍
 
 > \* go-cache 无 LRU 淘汰机制，内部仅为 `map` + `sync.RWMutex`，读性能更高但功能不对等。
 
 #### 混合负载（90% 读 + 10% 写）
 
-| 库 | ns/op | B/op | allocs/op | vs TTLCacheNext |
+| 库 | ns/op | B/op | allocs/op | vs LRUNext |
 |---|---|---|---|---|
-| **TTLCacheNext** | **405** | 45 | 0 | — |
+| **LRUNext** | **405** | 45 | 0 | — |
 | golang-lru v2 | 833 | 12 | 0 | **快 2.1×** |
 | go-cache | 700 | 16 | 0 | **快 1.7×** |
 
-TTLCacheNext比golang-lru v2、go-cache分别快2.1倍、1.7倍
+LRUNext比golang-lru v2、go-cache分别快2.1倍、1.7倍
 
 #### 关键结论
 
@@ -102,7 +102,7 @@ TTLCacheNext比golang-lru v2、go-cache分别快2.1倍、1.7倍
 #### 安装
 
 ```bash
-go get github.com/doc-war/TTLCacheNext
+go get github.com/doc-war/lru-next
 ```
 
 #### 快速开始
@@ -113,7 +113,7 @@ package main
 import (
 	"fmt"
 	"time"
-	"github.com/doc-war/TTLCacheNext"
+	"github.com/doc-war/lru-next"
 )
 
 func main() {
@@ -139,8 +139,14 @@ func main() {
 // 创建一个最多缓存 ~1000 个 key、TTL 5 分钟的缓存实例。
 c, err := cache.New[T](maxKeys int, ttl time.Duration)
 
-// 获取或通过 loader 回源加载。
+// 获取或通过 loader 回源加载（带降级和雪崩防护）。
 val, err := c.GetOrLoad(id string, loader func(string) (T, error)) (T, error)
+
+// 只读缓存，不触发 loader。不存在或已过期时返回 zero value + false。
+val, ok := c.Get(id string) (T, bool)
+
+// 直接写入缓存，覆盖已有值，重置 TTL。
+c.Set(id string, val T)
 
 // 删除指定 key。
 c.Delete(id string)

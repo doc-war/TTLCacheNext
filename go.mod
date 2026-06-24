@@ -1,4 +1,4 @@
-module github.com/doc-war/TTLCacheNext
+module github.com/doc-war/lru-next
 
 go 1.22
 

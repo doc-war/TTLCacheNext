@@ -2,10 +2,84 @@ package internal
 
 import (
 	"errors"
+	"fmt"
 	"sync"
 	"testing"
 	"time"
 )
+
+func TestShardedCacheSetGet(t *testing.T) {
+	c, _ := NewShardedCache[string](100, time.Minute)
+	c.Set("hello", "world")
+	val, ok := c.Get("hello")
+	if !ok {
+		t.Fatal("expected Get to return true")
+	}
+	if val != "world" {
+		t.Fatalf("expected 'world', got '%s'", val)
+	}
+}
+
+func TestShardedCacheGetMiss(t *testing.T) {
+	c, _ := NewShardedCache[string](100, time.Minute)
+	_, ok := c.Get("nonexistent")
+	if ok {
+		t.Fatal("expected Get to return false for missing key")
+	}
+}
+
+func TestShardedCacheGetExpired(t *testing.T) {
+	c, _ := NewShardedCache[string](100, 50*time.Millisecond)
+	c.Set("key", "val")
+	time.Sleep(60 * time.Millisecond)
+	_, ok := c.Get("key")
+	if ok {
+		t.Fatal("expected Get to return false for expired key")
+	}
+}
+
+func TestShardedCacheSetOverwrite(t *testing.T) {
+	c, _ := NewShardedCache[string](100, time.Minute)
+	c.Set("key", "first")
+	c.Set("key", "second")
+	val, ok := c.Get("key")
+	if !ok {
+		t.Fatal("expected Get to return true")
+	}
+	if val != "second" {
+		t.Fatalf("expected 'second', got '%s'", val)
+	}
+}
+
+func TestShardedCacheSetLRUEviction(t *testing.T) {
+	// Very small cache: each shard holds max 1 item
+	c, _ := NewShardedCache[string](1, time.Minute)
+	for i := range 500 {
+		c.Set(fmt.Sprintf("k%d", i), "v")
+	}
+	// Total should be bounded by shardCount (each shard capacity = 1)
+	if c.Len() > 256 {
+		t.Fatalf("expected Len<=256 with per-shard capacity=1, got %d", c.Len())
+	}
+}
+
+func TestShardedCacheConcurrentGetSet(t *testing.T) {
+	c, _ := NewShardedCache[int](1000, time.Minute)
+	var wg sync.WaitGroup
+	for range 20 {
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.Set("key", 42)
+		}()
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			c.Get("key")
+		}()
+	}
+	wg.Wait()
+}
 
 func TestShardedCacheGetOrLoad(t *testing.T) {
 	c, err := NewShardedCache[string](100, time.Minute)

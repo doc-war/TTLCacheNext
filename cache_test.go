@@ -62,6 +62,49 @@ func TestCacheLen(t *testing.T) {
 	}
 }
 
+func TestCacheGetSet(t *testing.T) {
+	c, _ := New[string](100, time.Minute)
+	c.Set("hello", "world")
+	val, ok := c.Get("hello")
+	if !ok {
+		t.Fatal("expected Get to return true")
+	}
+	if val != "world" {
+		t.Fatalf("expected 'world', got '%s'", val)
+	}
+}
+
+func TestCacheGetMiss(t *testing.T) {
+	c, _ := New[string](100, time.Minute)
+	_, ok := c.Get("nonexistent")
+	if ok {
+		t.Fatal("expected Get to return false for missing key")
+	}
+}
+
+func TestCacheGetExpired(t *testing.T) {
+	c, _ := New[string](100, 50*time.Millisecond)
+	c.Set("key", "val")
+	time.Sleep(60 * time.Millisecond)
+	_, ok := c.Get("key")
+	if ok {
+		t.Fatal("expected Get to return false for expired key")
+	}
+}
+
+func TestCacheSetOverwrite(t *testing.T) {
+	c, _ := New[string](100, time.Minute)
+	c.Set("key", "first")
+	c.Set("key", "second")
+	val, ok := c.Get("key")
+	if !ok {
+		t.Fatal("expected Get to return true")
+	}
+	if val != "second" {
+		t.Fatalf("expected 'second', got '%s'", val)
+	}
+}
+
 func TestCacheConcurrent(t *testing.T) {
 	c, _ := New[int](1000, time.Minute)
 	var wg sync.WaitGroup

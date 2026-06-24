@@ -3,28 +3,32 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>TTLCacheNext — 高性能 TTL + LRU 内存缓存</title>
-<meta name="description" content="TTLCacheNext：超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。256 分片并发，无锁 LRU 核心，内置缓存雪崩防护。">
+<title>lru-next — 高性能 TTL + LRU 内存缓存</title>
+<meta name="description" content="lru-next：超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。256 分片并发，无锁 LRU 核心，内置缓存雪崩防护。">
 
-<meta property="og:title" content="TTLCacheNext — 高性能 TTL + LRU 内存缓存">
-<meta property="og:description" content="超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。256 分片并发，无锁 LRU 核心，内置缓存雪崩防护和脏数据降级。">
+<meta property="og:title" content="lru-next — 高性能 TTL + LRU 内存缓存">
+<meta property="og:description" content="基准测试远超golang-lru v2的超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。256 分片并发，无锁 LRU 核心，内置缓存雪崩防护和脏数据降级。">
 <meta property="og:type" content="website">
-<meta property="og:url" content="https://doc-war.com/TTLCacheNext">
+<meta property="og:url" content="https://doc-war.com/lru-next">
 <meta property="og:image" content="https://doc-war.com/img/og-ttl.png">
 
 <script type="application/ld+json">
 {
   "@context": "https://schema.org",
   "@type": "SoftwareApplication",
-  "name": "TTLCacheNext",
-  "description": "超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。256 分片并发，无锁 LRU 核心，内置缓存雪崩防护和脏数据降级。",
+  "name": "lru-next",
+  "description": "超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库，基准测试远超golang-lru v2。256 分片并发，无锁 LRU 核心，内置缓存雪崩防护和脏数据降级。",
   "applicationCategory": "DeveloperApplication",
   "operatingSystem": "Cross-platform",
   "programmingLanguage": "Go",
   "license": "MIT",
   "author": {
     "@type": "Organization",
-    "name": "doc-war"
+    "name": "doc-war",
+    "url": "https://doc-war.com",
+      "jobTitle": "产品经理 | 全栈架构师 | 文档工程师",
+      "description": "zhaoliwei，网名越石父，花名青樵，月光博客早期知名评论员，曾以提供判断力价值的评论风格而闻名。主张设计驱动，注重文档驱动，专注于基础协议和基础工具研发。"
+    }
   },
   "offers": {
     "@type": "Offer",
@@ -302,7 +306,7 @@
 
 <header>
   <div class="nav">
-    <div class="brand"><span class="dot"></span>TTLCacheNext</div>
+    <div class="brand"><span class="dot"></span>lru-next</div>
     <nav class="nav-links" id="navLinks">
       <a href="#overview">概述</a>
       <a href="#quickstart">快速开始</a>
@@ -313,7 +317,7 @@
     </nav>
     <div class="nav-right">
       <span class="pill">v0 · MIT</span>
-      <a class="gh-link" href="https://github.com/doc-war/TTLCacheNext" target="_blank" rel="noopener">GitHub ↗</a>
+      <a class="gh-link" href="https://github.com/doc-war/lru-next" target="_blank" rel="noopener">GitHub ↗</a>
     </div>
   </div>
 </header>
@@ -323,19 +327,19 @@
   <div>
     <p class="eyebrow">Go Library · 泛型 · 零外部依赖</p>
     <h1>256 分片并发 · 0 额外分配<br>比 golang-lru <span class="accent-word">快 4.2 倍</span></h1>
-    <p class="sub"><span class="mono">TTLCacheNext</span> 是一个超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。256 个分片通过 FNV-1a 哈希路由，大幅降低锁竞争；无锁 LRU 核心消除嵌套锁开销。专为读密集、高并发的场景设计。</p>
+    <p class="sub"><span class="mono">lru-next</span> 是一个超高性能、泛型、带 TTL 过期和 LRU 淘汰的内存缓存库。256 个分片通过 FNV-1a 哈希路由，大幅降低锁竞争；无锁 LRU 核心消除嵌套锁开销。专为读密集、高并发的场景设计。</p>
 
     <div class="lang-row">
       <span class="lang-chip active">
-        <span class="lang-name">Go</span><span class="lang-repo">TTLCacheNext</span>
+        <span class="lang-name">Go</span><span class="lang-repo">lru-next</span>
       </span>
     </div>
 
     <div class="hero-cta">
       <div class="install-chip">
         <span class="gp">$ go get</span>
-        <span class="pkg" id="installCmdText">github.com/doc-war/TTLCacheNext</span>
-        <button class="copy-btn" data-copy="go get github.com/doc-war/TTLCacheNext">复制</button>
+        <span class="pkg" id="installCmdText">github.com/doc-war/lru-next</span>
+        <button class="copy-btn" data-copy="go get github.com/doc-war/lru-next">复制</button>
       </div>
       <a class="link-arrow" href="#quickstart">查看快速开始 →</a>
     </div>
@@ -343,7 +347,7 @@
 
   <div>
     <div class="diagram-wrap">
-      <svg viewBox="0 0 480 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="TTLCacheNext 256 分片架构示意图">
+      <svg viewBox="0 0 480 340" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="lru-next 256 分片架构示意图">
         <defs>
           <marker id="arrAccent" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto">
             <path d="M0,0 L6,3 L0,6 Z" fill="var(--accent)"/>
@@ -482,7 +486,7 @@
   <div class="rail"><span class="num">§00</span>概述</div>
   <div class="content">
     <h2>用分片代替排队</h2>
-    <p class="lead">TTLCacheNext 把"一个全局锁的缓存"拆成 256 个独立分片，每把锁只覆盖 1/256 的数据——并发越高，收益越大。</p>
+    <p class="lead">lru-next 把"一个全局锁的缓存"拆成 256 个独立分片，每把锁只覆盖 1/256 的数据——并发越高，收益越大。</p>
 
     <div class="two-col">
       <div>
@@ -513,7 +517,7 @@
     <p style="color:var(--muted); font-size:13.5px; margin-top:0; margin-bottom:18px;">以下对比基于 Intel i5-8265U @ 1.60GHz · 10K key 固定池 · RunParallel 并发模式。</p>
 
     <div class="table-card" style="padding:18px 20px;">
-      <div class="perf-head"><span></span><span>golang-lru v2</span><span>TTLCacheNext</span></div>
+      <div class="perf-head"><span></span><span>golang-lru v2</span><span>lru-next</span></div>
 
       <div class="perf-row">
         <span class="perf-label">并发写入</span>
@@ -562,8 +566,8 @@
     <p class="lead">零外部依赖，仅使用 Go 标准库 + 泛型。</p>
 
     <div class="code-block">
-      <div class="code-head"><span>bash</span><button class="copy-btn" data-copy="go get github.com/doc-war/TTLCacheNext">复制</button></div>
-      <pre>go get github.com/doc-war/TTLCacheNext</pre>
+      <div class="code-head"><span>bash</span><button class="copy-btn" data-copy="go get github.com/doc-war/lru-next">复制</button></div>
+      <pre>go get github.com/doc-war/lru-next</pre>
     </div>
 
     <div class="code-block">
@@ -573,7 +577,7 @@
 <span class="tk-kw">import</span> (
     <span class="tk-str">"fmt"</span>
     <span class="tk-str">"time"</span>
-    <span class="tk-str">"github.com/doc-war/TTLCacheNext"</span>
+    <span class="tk-str">"github.com/doc-war/lru-next"</span>
 )
 
 <span class="tk-kw">func</span> <span class="tk-fn">main</span>() {
@@ -734,7 +738,7 @@
     <div class="table-card" style="padding:12px 20px;">
       <div class="perf-head"><span></span><span>ns/op</span><span>B/op</span></div>
       <div class="perf-row">
-        <span class="perf-label">TTLCacheNext</span>
+        <span class="perf-label">lru-next</span>
         <div class="bar-cell"><div class="bar-track"><div class="bar-fill ckd" style="width:24%;"></div></div><span class="bar-val">158</span></div>
         <div class="bar-cell"><span class="bar-val">2</span></div>
       </div>
@@ -752,9 +756,9 @@
 
     <h3 style="font-size:16px; margin:28px 0 14px; color:var(--text);">并发读取（Get 命中）</h3>
     <div class="table-card" style="padding:12px 20px;">
-      <div class="perf-head"><span></span><span>ns/op</span><span>vs TTLCacheNext</span></div>
+      <div class="perf-head"><span></span><span>ns/op</span><span>vs lru-next</span></div>
       <div class="perf-row">
-        <span class="perf-label">TTLCacheNext</span>
+        <span class="perf-label">lru-next</span>
         <div class="bar-cell"><div class="bar-track"><div class="bar-fill ckd" style="width:24%;"></div></div><span class="bar-val">183</span></div>
         <div class="bar-cell"><span class="bar-val">—</span></div>
       </div>
@@ -773,9 +777,9 @@
 
     <h3 style="font-size:16px; margin:28px 0 14px; color:var(--text);">混合负载（90% 读 + 10% 写）</h3>
     <div class="table-card" style="padding:12px 20px;">
-      <div class="perf-head"><span></span><span>ns/op</span><span>vs TTLCacheNext</span></div>
+      <div class="perf-head"><span></span><span>ns/op</span><span>vs lru-next</span></div>
       <div class="perf-row">
-        <span class="perf-label">TTLCacheNext</span>
+        <span class="perf-label">lru-next</span>
         <div class="bar-cell"><div class="bar-track"><div class="bar-fill ckd" style="width:49%;"></div></div><span class="bar-val">405</span></div>
         <div class="bar-cell"><span class="bar-val">—</span></div>
       </div>
@@ -880,9 +884,9 @@ val, err := c.<span class="tk-fn">GetOrLoad</span>(<span class="tk-str">"key"</s
 <hr class="div">
 
 <footer>
-  <span class="fl">TTLCacheNext · 高性能 TTL + LRU 内存缓存 · MIT License</span>
+  <span class="fl">lru-next · 高性能 TTL + LRU 内存缓存 · MIT License</span>
   <div class="fr">
-    <a href="https://github.com/doc-war/TTLCacheNext" target="_blank" rel="noopener">GitHub</a>
+    <a href="https://github.com/doc-war/lru-next" target="_blank" rel="noopener">GitHub</a>
     <a href="#overview">回到顶部</a>
   </div>
 </footer>

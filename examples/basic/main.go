@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"time"
 
-	"github.com/doc-war/TTLCacheNext"
+	"github.com/doc-war/lru-next"
 )
 
 func main() {
